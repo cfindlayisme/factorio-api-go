@@ -9,7 +9,7 @@ COPY *.go ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /application
 
-FROM alpine:3.16
+FROM alpine:3.18
 
 COPY --from=builder /application /application
 
