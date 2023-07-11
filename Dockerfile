@@ -7,7 +7,6 @@ RUN go mod download
 
 COPY *.go ./
 
-# Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /application
 
 FROM alpine:3.16
