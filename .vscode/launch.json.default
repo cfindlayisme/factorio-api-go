@@ -13,8 +13,7 @@
             "env": {
                 "RCONPASSWORD": "rcontest",
                 "RCONPORT": "25575",
-                "RCONSERVER": "",
-                "LISTENPORT": "8000"
+                "RCONSERVER": ""
             }
         }
     ]
