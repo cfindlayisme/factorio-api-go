@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorcon/rcon"
@@ -31,13 +32,37 @@ func getVersion(c *gin.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c.IndentedJSON(http.StatusOK, response)
+	c.IndentedJSON(http.StatusOK, formatVersion(response))
+}
+
+func getAge(c *gin.Context) {
+
+	conn := getRconConnection()
+
+	response, err := conn.Execute("/time")
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.IndentedJSON(http.StatusOK, formatAge(response))
+}
+
+func formatVersion(version string) string {
+	return trimResponse(version)
+}
+
+func formatAge(age string) string {
+	return trimResponse(age)
+}
+
+func trimResponse(response string) string {
+	return strings.TrimLeft(strings.TrimRight(response, "\"\n"), "\"")
 }
 
 func main() {
 
 	router := gin.Default()
 	router.GET("/version", getVersion)
+	router.GET("/age", getAge)
 
 	router.Run("localhost:8080")
 }
