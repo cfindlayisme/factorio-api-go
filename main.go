@@ -5,6 +5,9 @@
 package main
 
 import (
+	"strconv"
+
+	"github.com/cfindlayisme/factorio-api-go/environment"
 	"github.com/cfindlayisme/factorio-api-go/rconclient"
 	"github.com/gin-gonic/gin"
 )
@@ -15,5 +18,6 @@ func main() {
 	router.GET("/version", rconclient.GetVersion)
 	router.GET("/age", rconclient.GetAge)
 
-	router.Run("localhost:8080")
+	listenAddress := "localhost:" + strconv.Itoa(environment.GetListenPort())
+	router.Run(listenAddress)
 }
