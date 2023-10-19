@@ -3,15 +3,15 @@ package rconclient
 import (
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
+	"github.com/cfindlayisme/factorio-api-go/environment"
 	"github.com/gin-gonic/gin"
 	"github.com/gorcon/rcon"
 )
 
 func getRconConnection() *rcon.Conn {
-	conn, err := rcon.Dial(os.Getenv("RCONSERVER")+":"+os.Getenv("RCONPORT"), os.Getenv("RCONPASSWORD"))
+	conn, err := rcon.Dial(environment.GetRconConnectUrl(), environment.GetRconPassword())
 
 	if err != nil {
 		log.Fatal("Error while connecting to RCON server: ", err)

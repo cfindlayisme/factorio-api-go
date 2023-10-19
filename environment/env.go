@@ -22,3 +22,11 @@ func GetListenPort() int {
 
 	return listenPort
 }
+
+func GetRconConnectUrl() string {
+	return os.Getenv("RCONSERVER") + ":" + os.Getenv("RCONPORT")
+}
+
+func GetRconPassword() string {
+	return os.Getenv("RCONPASSWORD")
+}
