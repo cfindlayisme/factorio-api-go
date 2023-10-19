@@ -26,3 +26,13 @@ func Test_GetListenPortGoesToDefaultssIfInvalidPortEnviormentVariable(t *testing
 
 	assert.Equal(t, GetListenPort(), 8080)
 }
+
+func TestGetRconConnectUrlGetsEnviornmentVariables(t *testing.T) {
+	os.Unsetenv("RCONSERVER")
+	os.Unsetenv("RCONPORT")
+
+	os.Setenv("RCONSERVER", "mock")
+	os.Setenv("RCONPORT", "9999")
+
+	assert.Equal(t, GetRconConnectUrl(), "mock:9999")
+}
