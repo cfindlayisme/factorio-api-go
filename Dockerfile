@@ -2,7 +2,7 @@ FROM golang:1.20.10 AS builder
 
 WORKDIR /app
 
-COPY * ./
+COPY . ./
 RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /application
