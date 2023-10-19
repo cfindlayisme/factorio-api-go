@@ -36,3 +36,10 @@ func TestGetRconConnectUrlGetsEnviornmentVariables(t *testing.T) {
 
 	assert.Equal(t, GetRconConnectUrl(), "mock:9999")
 }
+
+func Test_GetRconPasswordGetsEnviormentVariable(t *testing.T) {
+	os.Unsetenv("RCONPASSWORD")
+	os.Setenv("RCONPASSWORD", "mockpassword")
+
+	assert.Equal(t, GetRconPassword(), "mockpassword")
+}
