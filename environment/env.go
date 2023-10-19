@@ -16,7 +16,7 @@ func GetListenPort() int {
 	listenPort, err := strconv.Atoi(listenPortString)
 
 	if err != nil {
-		fmt.Println("Failed to run due to invalid env variable for PORT! Setting to default of 8080")
+		fmt.Println("Failed to set port due to invalid env variable! Setting to default of 8080")
 		return 8080
 	}
 
