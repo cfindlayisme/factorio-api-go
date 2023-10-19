@@ -28,5 +28,11 @@ func GetRconConnectUrl() string {
 }
 
 func GetRconPassword() string {
-	return os.Getenv("RCONPASSWORD")
+	password, passwordExists := os.LookupEnv("RCONPASSWORD")
+
+	if !passwordExists {
+		fmt.Println("RCOCPASSWORD enviorment variable blank!")
+	}
+
+	return password
 }
