@@ -17,6 +17,12 @@ jobs:
         run: go mod download
       - name: Unit Testing
         run: go test -v ./...
+      - name: Run Snyk to check for golang vulnerabilities
+        uses: snyk/actions/golang@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
 
   build:
 
