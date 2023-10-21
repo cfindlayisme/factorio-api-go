@@ -17,6 +17,7 @@ func main() {
 	router := gin.Default()
 	router.GET("/version", rconclient.GetVersion)
 	router.GET("/age", rconclient.GetAge)
+	router.GET("/seed", rconclient.GetSeed)
 
 	listenAddress := "localhost:" + strconv.Itoa(environment.GetListenPort())
 	router.Run(listenAddress)
