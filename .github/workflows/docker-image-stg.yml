@@ -16,8 +16,6 @@ jobs:
       uses: docker/setup-buildx-action@v2
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag ${{ secrets.DOCKER_REPO }}-stg
-    - name: Build the second Docker image
-      run: docker build . --file Dockerfile-GCP --tag ${{ secrets.DOCKER_REPO2 }}-stg
     - name: Login to Docker Repository
       uses: docker/login-action@v2
       with:
@@ -27,6 +25,3 @@ jobs:
 
     - name: Push the Docker image with -stg tag
       run: docker push ${{ secrets.DOCKER_REPO }}-stg
-
-    - name: Push the second Docker image with -stg tag
-      run: docker push ${{ secrets.DOCKER_REPO2 }}-stg
