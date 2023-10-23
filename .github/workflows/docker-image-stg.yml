@@ -2,13 +2,15 @@ name: Build & Push Staging Docker Image
 
 on:
   push:
+  pull_request:
+    branches: [master, main]
 
 jobs:
   
   sonar:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: SonarCloud Scan
       uses: sonarsource/sonarcloud-github-action@master
       env:
