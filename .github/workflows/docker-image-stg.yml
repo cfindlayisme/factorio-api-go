@@ -4,8 +4,43 @@ on:
   push:
 
 jobs:
+  
+  sonar:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: SonarCloud Scan
+      uses: sonarsource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  snyk:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run Snyk to check for golang vulnerabilities
+      uses: snyk/actions/golang@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.21.3'
+    - name: Install dependencies for go
+      run: go mod download
+    - name: Unit Testing
+      run: go test -v ./...
+      
 
   build:
+    needs: [snyk, sonar, unit-test]
 
     runs-on: ubuntu-latest
 
@@ -22,6 +57,14 @@ jobs:
         registry: ${{ secrets.DOCKER_REGISTRY }}
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_TOKEN }}
-
-    - name: Push the Docker image with -stg tag
+        
+    - name: Run Snyk to check Docker image for vulnerabilities
+      uses: snyk/actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: ${{ secrets.DOCKER_REPO }}-stg
+        args: --severity-threshold=high
+        
+    - name: Push the Docker image
       run: docker push ${{ secrets.DOCKER_REPO }}-stg
