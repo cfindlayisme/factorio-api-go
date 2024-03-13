@@ -1,10 +1,12 @@
 module github.com/cfindlayisme/factorio-api-go
 
-go 1.20
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/gorcon/rcon v1.3.4
+	github.com/gorcon/rcon v1.3.5
 )
 
 require (
