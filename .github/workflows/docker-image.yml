@@ -2,30 +2,11 @@ name: Build & Push Production Docker Image
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
 
 jobs:
-
-  sonar:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: SonarCloud Scan
-      uses: sonarsource/sonarcloud-github-action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  snyk:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run Snyk to check for golang vulnerabilities
-      uses: snyk/actions/golang@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=high
 
   unit-test:
     runs-on: ubuntu-latest
@@ -38,48 +19,135 @@ jobs:
       run: go mod download
     - name: Unit Testing
       run: go test -v ./...
-      
-
-  build:
-    needs: [snyk, sonar, unit-test]
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Docker Buildx
-      id: buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag ${{ secrets.DOCKER_REPO }}:latest
-    - name: Login to Docker Repository
-      uses: docker/login-action@v3
+    - name: Generate coverage report
+      run: go test -coverprofile=coverage.out ./...
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
       with:
-        registry: ${{ secrets.DOCKER_REGISTRY }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_TOKEN }}
-        
-    - name: Run Snyk to check Docker image for vulnerabilities
-      uses: snyk/actions/docker@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        image: ${{ secrets.DOCKER_REPO }}:latest
-        args: --severity-threshold=high
-        
-    - name: Push the Docker image
-      run: docker push ${{ secrets.DOCKER_REPO }}:latest
+        name: coverage-report
+        path: coverage.out
 
+    - name: Retrieve wmb info from vault
+      id: import-secrets-wmb
+      uses: hashicorp/vault-action@v3.0.0
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        secrets: |
+            kv/data/pipeline/wmb WMB_URL ;
+            kv/data/pipeline/wmb WMB_PASSWORD
+        exportEnv: true
     - name: Notify IRC Success
       run: |
         export COMMIT_MSG=$(git log -1 --pretty=%B)
-        export NICK=$(head /dev/urandom | tr -dc A-Za-z | head -c 9 ; echo '')
-        bash -c 'exec 3<>/dev/tcp/${{ secrets.IRC_SERVER }}/6667; echo -e "USER github_actions 0 * :GitHub Actions\nNICK $NICK\nJOIN ${{ secrets.IRC_CHANNEL }}" >&3; sleep 2; echo -e "PRIVMSG ${{ secrets.IRC_CHANNEL }} :\x0303,01Build of ${{ secrets.DOCKER_REPO }}:latest completed successfully with commit message: "$COMMIT_MSG"\x03\nQUIT" >&3; cat <&3'
+        export MESSAGE="Unit tests for https://github.com/${{ github.repository }} completed successfully with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 3}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
       if: success()
-
     - name: Notify IRC Failure
       run: |
         export COMMIT_MSG=$(git log -1 --pretty=%B)
-        export NICK=$(head /dev/urandom | tr -dc A-Za-z | head -c 9 ; echo '')
-        bash -c 'exec 3<>/dev/tcp/${{ secrets.IRC_SERVER }}/6667; echo -e "USER github_actions 0 * :GitHub Actions\nNICK $NICK\nJOIN ${{ secrets.IRC_CHANNEL }}" >&3; sleep 2; echo -e "PRIVMSG ${{ secrets.IRC_CHANNEL }} :\x0304,01Build of ${{ secrets.DOCKER_REPO }}:latest failed with commit message: "$COMMIT_MSG"\x03\nQUIT" >&3; cat <&3'
+        export MESSAGE="Unit tests for https://github.com/${{ github.repository }} failed with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 4}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
+      if: failure()
+
+  sonar:
+      needs: [unit-test]
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  nancy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22.3
+    - name: Check for Go vulnerabilities
+      run: |
+        go list -json -m all | docker run --rm -i sonatypecommunity/nancy:latest sleuth
+    - name: Retrieve wmb info from vault
+      id: import-secrets-wmb
+      uses: hashicorp/vault-action@v3.0.0
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        secrets: |
+            kv/data/pipeline/wmb WMB_URL ;
+            kv/data/pipeline/wmb WMB_PASSWORD
+        exportEnv: true
+    - name: Notify IRC Success
+      run: |
+        export COMMIT_MSG=$(git log -1 --pretty=%B)
+        export MESSAGE="Vulnerability scan for https://github.com/${{ github.repository }} completed successfully with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 3}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
+      if: success()
+    - name: Notify IRC Failure
+      run: |
+        export COMMIT_MSG=$(git log -1 --pretty=%B)
+        export MESSAGE="Vulnerability scan for https://github.com/${{ github.repository }} failed with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 4}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
+      if: failure()
+
+  build-and-push:
+    needs: [sonar, nancy, unit-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build Docker images for ghcr.io
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ghcr.io/${{ github.repository }}:latest
+    - name: Retrieve wmb info from vault
+      id: import-secrets-wmb
+      uses: hashicorp/vault-action@v3.0.0
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        secrets: |
+            kv/data/pipeline/wmb WMB_URL ;
+            kv/data/pipeline/wmb WMB_PASSWORD
+        exportEnv: true
+    - name: Notify IRC on Success
+      run: |
+        export COMMIT_MSG=$(git log -1 --pretty=%B)
+        export MESSAGE="Build and push of ghcr.io/${{ github.repository }}:latest completed with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 3}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
+      if: success()
+    - name: Notify IRC on Failure
+      run: |
+        export COMMIT_MSG=$(git log -1 --pretty=%B)
+        export MESSAGE="Build and push of ghcr.io/${{ github.repository }}:latest failed with commit message: $COMMIT_MSG. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        curl -X POST -H "Content-Type: application/json" -d "{\"message\": \"$MESSAGE\", \"password\": \"${{ steps.import-secrets-wmb.outputs.WMB_PASSWORD }}\", \"colourcode\": 4}" ${{ steps.import-secrets-wmb.outputs.WMB_URL }}
       if: failure()
