@@ -29,7 +29,7 @@ jobs:
 
     - name: Retrieve wmb info from vault
       id: import-secrets-wmb
-      uses: hashicorp/vault-action@v3.1.0
+      uses: hashicorp/vault-action@v3.3.0
       with:
         url: ${{ secrets.VAULT_ADDR }}
         method: approle
@@ -82,7 +82,7 @@ jobs:
         go list -json -m all | docker run --rm -i sonatypecommunity/nancy:latest sleuth
     - name: Retrieve wmb info from vault
       id: import-secrets-wmb
-      uses: hashicorp/vault-action@v3.1.0
+      uses: hashicorp/vault-action@v3.3.0
       with:
         url: ${{ secrets.VAULT_ADDR }}
         method: approle
@@ -129,7 +129,7 @@ jobs:
         tags: ghcr.io/${{ github.repository }}:latest
     - name: Retrieve wmb info from vault
       id: import-secrets-wmb
-      uses: hashicorp/vault-action@v3.1.0
+      uses: hashicorp/vault-action@v3.3.0
       with:
         url: ${{ secrets.VAULT_ADDR }}
         method: approle
